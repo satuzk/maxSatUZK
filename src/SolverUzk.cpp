@@ -62,6 +62,8 @@ void SolverUzk::updateRhs(ClauseSpace &f) {
 
 void SolverUzk::solveStart() {
 	p_config.inputFinish();
+
+	p_config.start();
 }
 
 Solver::Result SolverUzk::solveStep() {
