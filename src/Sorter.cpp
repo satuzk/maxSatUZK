@@ -436,11 +436,7 @@ Weight countSoftWeight(ClauseSpace &f) {
 	return count;
 }
 
-void maxsatLhs(VarAllocator &va, ClauseSpace &in,
-		NumberSeq &base, ClauseSpace &res,
-		std::vector<Sorter> &sorters,
-		std::vector<Literal> &rel_lits,
-		std::vector<Weight> &rel_weights,
+void maxsatHard(VarAllocator &va, ClauseSpace &in, ClauseSpace &res,
 		std::unordered_map<Variable, Variable, VarHashFunc> &variable_map) {
 	// copy all variables from the original formula
 	for(auto i = in.refsBegin(); i != in.refsEnd(); ++i) {
@@ -454,9 +450,34 @@ void maxsatLhs(VarAllocator &va, ClauseSpace &in,
 	
 	for(auto i = in.refsBegin(); i != in.refsEnd(); ++i) {
 		ClauseRef in_clause = *i;
+		if(in_clause.getWeight() != kHardWeight)
+			continue;
+
 		int in_length = in_clause.length();
-		int tf_length = in_clause.getWeight() == kHardWeight ? in_length : in_length + 1;
-		ClauseRef tf_clause = res.allocate(tf_length);
+		ClauseRef tf_clause = res.allocate(in_length);
+		
+		// copy the literals from the original clause
+		for(int j = 0; j < in_clause.length(); j++) {
+			Literal in_literal = in_clause.getLiteral(j);
+			Variable tf_variable = variable_map[in_literal.var()];
+			tf_clause.setLiteral(j, in_literal.sign() > 0 ? tf_variable.pos() : tf_variable.neg());
+		}
+	}
+}
+
+void maxsatLhs(VarAllocator &va, ClauseSpace &in,
+		NumberSeq &base, ClauseSpace &res,
+		std::vector<Sorter> &sorters,
+		std::vector<Literal> &rel_lits,
+		std::vector<Weight> &rel_weights,
+		std::unordered_map<Variable, Variable, VarHashFunc> &variable_map) {
+	for(auto i = in.refsBegin(); i != in.refsEnd(); ++i) {
+		ClauseRef in_clause = *i;
+		if(in_clause.getWeight() == kHardWeight)
+			continue;
+
+		int in_length = in_clause.length();
+		ClauseRef tf_clause = res.allocate(in_length + 1);
 		
 		// copy the literals from the original clause
 		for(int j = 0; j < in_clause.length(); j++) {
@@ -466,12 +487,10 @@ void maxsatLhs(VarAllocator &va, ClauseSpace &in,
 		}
 
 		// add a relaxation literal
-		if(in_clause.getWeight() != kHardWeight) {
-			Literal rel_lit = va.alloc().pos();
-			tf_clause.setLiteral(in_length, rel_lit);
-			rel_lits.push_back(-rel_lit);
-			rel_weights.push_back(in_clause.getWeight());
-		}
+		Literal rel_lit = va.alloc().pos();
+		tf_clause.setLiteral(in_length, rel_lit);
+		rel_lits.push_back(-rel_lit);
+		rel_weights.push_back(in_clause.getWeight());
 	}
 
 	buildSorters(va, rel_lits, rel_weights, base, sorters, res);
@@ -504,6 +523,7 @@ void solve(ClauseSpace &in, NumberSeq &base, Weight initial_lb, Weight initial_u
 	std::vector<Literal> rel_lits;
 	std::vector<Weight> rel_weights;
 	std::unordered_map<Variable, Variable, VarHashFunc> variable_map;
+	maxsatHard(va_lhs, in, f_lhs, variable_map);
 	maxsatLhs(va_lhs, in, base, f_lhs, sorters, rel_lits, rel_weights, variable_map);
 
 	// estimate the number of variables required to express the rhs. this is an upper bound.
