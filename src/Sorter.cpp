@@ -548,8 +548,6 @@ void solve(ClauseSpace &in, NumberSeq &base, Weight initial_lb, Weight initial_u
 	for(int i = va_lhs.next_var(); i < va_lhs.next_var() + estimate; i++)
 		solver.lockVariable(Variable::from_index(i));
 
-	std::cout << "o " << countSoftWeight(in) - cur_lb << std::endl;
-
 	std::vector<Literal> assignment;
 
 	solver.solveStart();
@@ -566,6 +564,8 @@ void solve(ClauseSpace &in, NumberSeq &base, Weight initial_lb, Weight initial_u
 		return;
 	}
 	std::cout << "c Hard clauses are satisfiable" << std::endl;
+	
+	std::cout << "o " << countSoftWeight(in) - cur_lb << std::endl;
 
 	for(auto it = variable_map.begin(); it != variable_map.end(); ++it)
 		if(solver.litInModel(it->second.pos())) {
