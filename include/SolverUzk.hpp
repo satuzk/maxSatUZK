@@ -41,6 +41,12 @@
 #include "../satuzk/include/Config.hpp"
 #include "../satuzk/inline/Config.hpp"
 
+#include "../satuzk/inline/simplify/BlockedClauseElim.hpp"
+#include "../satuzk/inline/simplify/VarElim.hpp"
+#include "../satuzk/inline/simplify/Subsumption.hpp"
+#include "../satuzk/inline/simplify/Equivalent.hpp"
+#include "../satuzk/inline/simplify/Unhiding.hpp"
+
 namespace maxsatuzk {
 
 class SolverUzk : public Solver {
@@ -62,10 +68,11 @@ private:
 	typedef satuzk::Config<BaseDefs, Hooks> Config;
 
 public:
-	SolverUzk(int config_id) : p_config(Hooks(), config_id) {
+	SolverUzk(int config_id) : p_config(Hooks(), config_id), p_numRuns(0) {
 	}
 
 	void reserveVars(int n);
+	void lockVariable(Variable variable);
 	virtual void setupLhs(ClauseSpace &f);
 	virtual void updateRhs(ClauseSpace &f);
 	virtual void solveStart();
@@ -76,6 +83,7 @@ public:
 private:
 	Config p_config;
 	typename Config::Variable p_contextVar;
+	int p_numRuns;
 };
 
 } // namespace maxsatuzk

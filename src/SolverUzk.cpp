@@ -16,7 +16,14 @@ void SolverUzk::reserveVars(int num_vars) {
 
 	// first unused variable becomes the context variable
 	p_contextVar = p_config.varAlloc();
+	p_config.lockVariable(p_contextVar);
 	p_config.assumptionEnable(p_contextVar.zeroLiteral());
+}
+
+void SolverUzk::lockVariable(Variable variable) {
+	int var_index = variable.index() - 1;
+	auto solver_var = Config::Variable::fromIndex(var_index);
+	p_config.lockVariable(solver_var);
 }
 
 void SolverUzk::setupLhs(ClauseSpace &f) {
@@ -62,6 +69,29 @@ void SolverUzk::updateRhs(ClauseSpace &f) {
 
 void SolverUzk::solveStart() {
 	p_config.inputFinish();
+	
+	if(p_numRuns == 0) {
+		std::cout << "c [      ]  before pp:" << std::endl;
+		std::cout << "c [      ]     variables: " << p_config.p_varConfig.presentCount()
+				<< ", clauses: " << p_config.p_clauseConfig.numPresent()
+				<< ", watch lists: " << p_config.p_varConfig.watchOverallSize() << std::endl;	
+		
+		p_config.occurConstruct();
+		
+		UnhideRunStats stat_unhide;
+		bceEliminateAll(p_config);
+		vecdEliminateAll(p_config);
+		selfsubEliminateAll(p_config);
+		for(int i = 0; i < 5; i++)
+			unhideEliminateAll(p_config, true, stat_unhide);
+		
+		p_config.occurDestruct();
+		
+		std::cout << "c [      ]  after pp:" << std::endl;
+		std::cout << "c [      ]     variables: " << p_config.p_varConfig.presentCount()
+				<< ", clauses: " << p_config.p_clauseConfig.numPresent()
+				<< ", watch lists: " << p_config.p_varConfig.watchOverallSize() << std::endl;	
+	}
 
 	p_config.start();
 }
@@ -84,6 +114,7 @@ Solver::Result SolverUzk::solveStep() {
 
 void SolverUzk::solveReset() {
 	p_config.reset();
+	p_numRuns++;
 }
 
 bool SolverUzk::litInModel(Literal literal) {

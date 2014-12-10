@@ -517,13 +517,15 @@ void solve(ClauseSpace &in, NumberSeq &base, Weight initial_lb, Weight initial_u
 	Weight cur_lb = initial_lb; // formula is sat for v <= lb
 	Weight cur_ub = initial_ub; // formula is unsat for v >= ub
 	
-	VarAllocator va_lhs;
+	VarAllocator va_hard;
 	ClauseSpace f_lhs;
+	std::unordered_map<Variable, Variable, VarHashFunc> variable_map;
+	maxsatHard(va_hard, in, f_lhs, variable_map);
+
+	VarAllocator va_lhs(va_hard.next_var(), std::numeric_limits<int>::max());
 	std::vector<Sorter> sorters;
 	std::vector<Literal> rel_lits;
 	std::vector<Weight> rel_weights;
-	std::unordered_map<Variable, Variable, VarHashFunc> variable_map;
-	maxsatHard(va_lhs, in, f_lhs, variable_map);
 	maxsatLhs(va_lhs, in, base, f_lhs, sorters, rel_lits, rel_weights, variable_map);
 
 	// estimate the number of variables required to express the rhs. this is an upper bound.
@@ -537,6 +539,14 @@ void solve(ClauseSpace &in, NumberSeq &base, Weight initial_lb, Weight initial_u
 	SolverUzk solver(0);
 	solver.reserveVars(va_lhs.next_var() + estimate);
 	solver.setupLhs(f_lhs);
+
+	for(auto sp = sorters.begin(); sp != sorters.end(); ++sp)
+		for(int i = 0; i < sp->size(); i++)
+			solver.lockVariable(sp->output(i).var());
+	
+	// TODO: we sould not have to do this!
+	for(int i = va_lhs.next_var(); i < va_lhs.next_var() + estimate; i++)
+		solver.lockVariable(Variable::from_index(i));
 
 	std::cout << "o " << countSoftWeight(in) - cur_lb << std::endl;
 
