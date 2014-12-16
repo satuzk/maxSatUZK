@@ -19,15 +19,15 @@
 
 namespace maxsatuzk {
 
-NumberSeq convertBase(int64_t num, NumberSeq &base) {
-	NumberSeq val(base.length());
+std::vector<int> convertBase(int64_t num, std::vector<int> &base) {
+	std::vector<int> val(base.size());
 	val[0] = 1;
-	for(int i = 1; i < base.length(); i++) {
+	for(int i = 1; i < base.size(); i++) {
 		val[i] = val[i - 1] * base[i];
 	}
 
-	NumberSeq ns(base.length());
-	for(int i = base.length() - 1; i >= 0; i--) {
+	std::vector<int> ns(base.size());
+	for(int i = base.size() - 1; i >= 0; i--) {
 		int64_t k = num / val[i];
 		assert(k < std::numeric_limits<int>::max());
 		ns[i] = k;

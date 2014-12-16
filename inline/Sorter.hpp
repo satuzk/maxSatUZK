@@ -53,13 +53,13 @@ template<typename VarAllocator, typename ClauseEmitter>
 void buildSorters(VarAllocator &allocator, ClauseEmitter &emitter,
 		std::vector<typename ClauseEmitter::Literal> &lits,
 		std::vector<Weight> &weights,
-		NumberSeq base,
+		std::vector<int> base,
 		std::vector<Sorter<typename ClauseEmitter::Literal>> &sorters) {
 	// we need a literal that is always zero to simplify sorting
 	typename ClauseEmitter::Literal null_lit = allocator.allocate().oneLiteral();
 	encodeuzk::emit(emitter, { null_lit.inverse() });
 
-	for(int k = 0; k < base.length(); k++) {
+	for(int k = 0; k < base.size(); k++) {
 		std::vector<typename ClauseEmitter::Literal> ins;
 
 		// add carry bits from previous sorter as input
@@ -73,7 +73,7 @@ void buildSorters(VarAllocator &allocator, ClauseEmitter &emitter,
 		}
 
 		for(int i = 0; i < lits.size(); i++) {
-			NumberSeq weight = convertBase(weights[i], base);
+			std::vector<int> weight = convertBase(weights[i], base);
 			for(int j = 0; j < weight[k]; j++) {
 				ins.push_back(lits[i]);
 				if(debugSorters)
@@ -172,7 +172,7 @@ typename ClauseEmitter::Literal computeSorterRemainderGe(VarAllocator &allocator
 template<typename VarAllocator, typename ClauseEmitter>
 typename ClauseEmitter::Literal computeSorterNetworkGe(VarAllocator &allocator, ClauseEmitter &emitter,
 		std::vector<Sorter<typename ClauseEmitter::Literal>> &sorters,
-		NumberSeq base, NumberSeq rhs, int i) {
+		std::vector<int> base, std::vector<int> rhs, int i) {
 
 	if(i == 0) {
 		typename ClauseEmitter::Variable r = allocator.allocate();
@@ -193,7 +193,7 @@ typename ClauseEmitter::Literal computeSorterNetworkGe(VarAllocator &allocator, 
 	
 	typename ClauseEmitter::Literal gt;
 	typename ClauseEmitter::Literal ge;
-	if(i == base.length() - 1) {
+	if(i == base.size() - 1) {
 		gt = computeSorterGe(allocator, emitter, sorters[i], rhs[i] + 1);
 		ge = computeSorterGe(allocator, emitter, sorters[i], rhs[i]);
 	}else{
@@ -208,7 +208,7 @@ typename ClauseEmitter::Literal computeSorterNetworkGe(VarAllocator &allocator, 
 template<typename VarAllocator, typename ClauseEmitter>
 typename ClauseEmitter::Literal computeSorterNetworkGe(VarAllocator &allocator, ClauseEmitter &emitter,
 		std::vector<Sorter<typename ClauseEmitter::Literal>> &sorters,
-		NumberSeq base, NumberSeq rhs) {
+		std::vector<int> base, std::vector<int> rhs) {
 	return computeSorterNetworkGe(allocator, emitter, sorters, base, rhs,
 			sorters.size());
 }
@@ -219,11 +219,11 @@ void maxsatHard(VarAllocator &allocator, ClauseEmitter &emitter,
 		std::unordered_map<InVariable, typename ClauseEmitter::Variable, VarHashFunc> &variable_map) {
 	// copy all variables from the original formula
 	for(auto i = in.refsBegin(); i != in.refsEnd(); ++i) {
-		InClauseRef clause = *i;
-		for(int j = 0; j < clause.length(); j++) {
-			InVariable v = clause.getLiteral(j).var();
-			if(variable_map.find(v) == variable_map.end())
-				variable_map[v] = allocator.allocate();
+		InClauseRef in_clause = *i;
+		for(int j = 0; j < in_clause.length(); j++) {
+			InVariable in_variable = in_clause.getLiteral(j).var();
+			if(variable_map.find(in_variable) == variable_map.end())
+				variable_map[in_variable] = allocator.allocate();
 		}
 	}
 	
@@ -245,7 +245,7 @@ void maxsatHard(VarAllocator &allocator, ClauseEmitter &emitter,
 
 template<typename VarAllocator, typename ClauseEmitter>
 void maxsatLhs(VarAllocator &allocator, ClauseEmitter &emitter,
-		InClauseSpace &in, NumberSeq &base,
+		InClauseSpace &in, std::vector<int> &base,
 		std::vector<Sorter<typename ClauseEmitter::Literal>> &sorters,
 		std::vector<typename ClauseEmitter::Literal> &rel_lits,
 		std::vector<Weight> &rel_weights,
@@ -278,11 +278,11 @@ void maxsatLhs(VarAllocator &allocator, ClauseEmitter &emitter,
 // generates a formula, that is satisfiable iff at least min soft clauses can be satisfied
 template<typename VarAllocator, typename ClauseEmitter>
 void maxsatRhs(VarAllocator &allocator, ClauseEmitter &emitter,
-		NumberSeq &base, int min,
+		std::vector<int> &base, int min,
 		std::vector<Sorter<typename ClauseEmitter::Literal>> &sorters) {
-	NumberSeq rhs = convertBase(min, base);
+	std::vector<int> rhs = convertBase(min, base);
 	if(debugRhs)
-		for(int i = 0; i < rhs.length(); i++)
+		for(int i = 0; i < rhs.size(); i++)
 			std::cout << "rhs[" << i << "]: " << rhs[i] << std::endl;
 
 	typename ClauseEmitter::Literal r
@@ -294,7 +294,7 @@ void maxsatRhs(VarAllocator &allocator, ClauseEmitter &emitter,
 }
 
 template<typename Solver>
-void solve(InClauseSpace &in, NumberSeq &base, Weight initial_lb, Weight initial_ub) {
+void solve(InClauseSpace &in, std::vector<int> &base, Weight initial_lb, Weight initial_ub) {
 	Weight cur_lb = initial_lb; // formula is sat for v <= lb
 	Weight cur_ub = initial_ub; // formula is unsat for v >= ub
 

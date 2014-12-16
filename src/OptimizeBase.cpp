@@ -29,14 +29,14 @@ public:
 		return p_vector[index];
 	}
 
-	NumberSeq convert(int num) const {
-		NumberSeq val(p_vector.size() + 1);
+	std::vector<int> convert(int num) const {
+		std::vector<int> val(p_vector.size() + 1);
 		val[0] = 1;
 		for(int i = 0; i < p_vector.size(); i++) {
 			val[i + 1] = val[i] * p_vector[i];
 		}
 
-		NumberSeq seq(p_vector.size() + 1);
+		std::vector<int> seq(p_vector.size() + 1);
 		for(int i = p_vector.size(); i >= 0; i--) {
 			int k = num / val[i];
 			seq[i] = k;
@@ -52,7 +52,7 @@ private:
 int cost(const Base &base, const std::vector<int> &s) {
 	int sum = 0;
 	for(int i = 0; i < s.size(); i++) {
-		NumberSeq seq = base.convert(s[i]);
+		std::vector<int> seq = base.convert(s[i]);
 		for(int j = 0; j < base.length() + 1; j++)
 			sum += seq[j];
 	}
@@ -65,7 +65,7 @@ int cost(const Base &base, const std::vector<int> &s) {
 int partial(const Base &base, const std::vector<int> &s) {
 	int sum = 0;
 	for(int i = 0; i < s.size(); i++) {
-		NumberSeq seq = base.convert(s[i]);
+		std::vector<int> seq = base.convert(s[i]);
 		for(int j = 0; j < base.length(); j++)
 			sum += seq[j];
 	}
@@ -102,7 +102,7 @@ void dfsBase(const Base &current, const std::vector<int> &s, int max, Base &best
 	}
 }
 
-NumberSeq optimalBase(const std::vector<int> &s) {
+std::vector<int> optimalBase(const std::vector<int> &s) {
 	Base best;
 	if(s.size() > 0) {
 		int max = *std::max_element(s.begin(), s.end());
@@ -112,7 +112,7 @@ NumberSeq optimalBase(const std::vector<int> &s) {
 		dfsBase(Base(), s, max, best);
 	}
 	
-	NumberSeq seq(best.length() + 1);
+	std::vector<int> seq(best.length() + 1);
 	seq[0] = 1;
 	std::cout << "c Base:";
 	for(int i = 0; i < best.length(); i++) {

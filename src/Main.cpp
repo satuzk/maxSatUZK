@@ -12,7 +12,7 @@
 #include "../inline/DimacsParse.hpp"
 
 namespace maxsatuzk {
-	NumberSeq optimalBase(const std::vector<int> &s);
+	std::vector<int> optimalBase(const std::vector<int> &s);
 }
 
 int main(int argc, char **argv) {
@@ -34,7 +34,7 @@ int main(int argc, char **argv) {
 		if(clause.getWeight() != maxsatuzk::kHardWeight)
 			s.push_back(clause.getWeight());
 	}
-	maxsatuzk::NumberSeq base = maxsatuzk::optimalBase(s);
+	std::vector<int> base = maxsatuzk::optimalBase(s);
 	
 	maxsatuzk::solve<maxsatuzk::SolverUzk>(in, base, 0, maxsatuzk::countSoftWeight(in) + 1);
 	return 0;
