@@ -101,157 +101,116 @@ void buildSorters(VarAllocator &allocator, ClauseEmitter &emitter,
 	}
 }
 
-// produces a constraint that is true iff output(s) % n >= lim
+// produces a constraint that is true iff sorter >= target
 template<typename VarAllocator, typename ClauseEmitter>
-void makeModGe(VarAllocator &allocator, ClauseEmitter &emitter,
-		std::vector<Sorter<typename ClauseEmitter::Literal>> &sorters, int i,
-		int n, int lim, typename ClauseEmitter::Literal r) {
-	Sorter<typename ClauseEmitter::Literal> &s = sorters[i];
-	if(lim == 0) {
+typename ClauseEmitter::Literal computeSorterGe(VarAllocator &allocator, ClauseEmitter &emitter,
+		Sorter<typename ClauseEmitter::Literal> &sorter, int target) {
+	if(target == 0) {
+		typename ClauseEmitter::Variable r = allocator.allocate();
+
 		// trivial case 1: every number is >= 0
-		encodeuzk::emit(emitter, { r });
-		if(debugRhs) {
-			std::cout << "s[" << i << "] mod " << n << " >= " << lim << ": ";
-			std::cout << r.toNumber() << " <-> true" << std::endl;
-		}
-		return;
-	}else if(s.size() < lim) {
+		encodeuzk::emit(emitter, { r.oneLiteral() });
+
+		return r.oneLiteral();
+	}else if(sorter.size() < target) {
+		typename ClauseEmitter::Variable r = allocator.allocate();
+
 		// trivial case 2: the sorter is not big enough to reach the limit
-		encodeuzk::emit(emitter, { r.inverse() });
-		if(debugRhs) {
-			std::cout << "s[" << i << "] mod " << n << " >= " << lim << ": ";
-			std::cout << r.toNumber() << " <-> false" << std::endl;
-		}
-		return;
-	}else if(n <= lim) {
-		// trivial case 3: the modulus is not big enough to reach the limit
-		encodeuzk::emit(emitter, { r.inverse() });
-		if(debugRhs) {
-			std::cout << "s[" << i << "] mod " << n << " >= " << lim << ": ";
-			std::cout << r.toNumber() << " <-> false" << std::endl;
-		}
-		return;
-	}
-	
-	if(debugRhs) {
-		std::cout << "s[" << i << "] mod " << n << " >= " << lim << ": ";
-		std::cout << r.toNumber() << " <-> false OR ..." << std::endl;
+		encodeuzk::emit(emitter, { r.zeroLiteral() });
+
+		return r.oneLiteral();
 	}
 
-	std::vector<typename ClauseEmitter::Literal> temp;
-	for(int k = 0; k < s.size(); k += n) {
-		if(k + lim - 1 >= s.size())
-			break;
-
-		typename ClauseEmitter::Literal x = allocator.allocate().oneLiteral();
-		temp.push_back(x);
-		
-		if(k + n - 1 < s.size()) {
-			// each temp literal is equivalent to a conjunction
-			encodeuzk::emit(emitter, { s.output(k + lim - 1).inverse(),
-					s.output(k + n - 1), x });
-			encodeuzk::emit(emitter, { x.inverse(), s.output(k + lim - 1) });
-			encodeuzk::emit(emitter, { x.inverse(), s.output(k + n - 1).inverse() });
-			if(debugRhs) {
-				std::cout << "s[" << i << "] mod " << n << " >= " << lim << ": ";
-				std::cout << x.toNumber() << " <-> " << s.output(k + lim - 1).toNumber() << " (out) "
-					<< " AND " << -(s.output(k + n - 1)).toNumber() << " (out) "  << std::endl;
-			}
-		}else{
-			// the last temp literal is equivalent to a sorter output
-			encodeuzk::emit(emitter, { s.output(k + lim - 1).inverse(), x });
-			encodeuzk::emit(emitter, { x.inverse(), s.output(k + lim - 1) });
-			if(debugRhs) {
-				std::cout << "s[" << i << "] mod " << n << " >= " << lim << ": ";
-				std::cout << x.toNumber() << " <-> " << s.output(k + lim - 1).toNumber() << " (out) " << std::endl;
-			}
-		}
-
-		// each temp literal implies r
-		encodeuzk::emit(emitter, { x.inverse(), r });
-		if(debugRhs) {
-			std::cout << "s[" << i << "] mod " << n << " >= " << lim << ": ";
-			std::cout << r.toNumber() << " <-> ... OR " << x.toNumber() << std::endl;
-		}
-	}
-
-	// r implies at least one temp literal
-	temp.push_back(r.inverse());
-	emitter.emit(temp.begin(), temp.end());
+	return sorter.output(target - 1);
 }
 
-// produces a constraint that is true iff output(s) >= lim
+// produces a constraint that is true iff sorter % divisor >= target
 template<typename VarAllocator, typename ClauseEmitter>
-void makeGe(VarAllocator &allocator, ClauseEmitter &emitter,
-		std::vector<Sorter<typename ClauseEmitter::Literal>> &sorters, int i,
-		int lim, typename ClauseEmitter::Literal r) {
-	Sorter<typename ClauseEmitter::Literal> &s = sorters[i];
-	if(lim == 0) {
-		/* trivial case 1: every number is >= 0 */
-		encodeuzk::emit(emitter, { r });
-		if(debugRhs) {
-			std::cout << "s[" << i << "] >= " << lim << ": ";
-			std::cout << r.toNumber() << " <-> true" << std::endl;
-		}
-	}else if(s.size() < lim) {
+typename ClauseEmitter::Literal computeSorterRemainderGe(VarAllocator &allocator, ClauseEmitter &emitter,
+		Sorter<typename ClauseEmitter::Literal> &sorter, int divisor, int target) {
+	if(target == 0) {
+		typename ClauseEmitter::Variable r = allocator.allocate();
+	
+		// trivial case 1: every number is >= 0
+		encodeuzk::emit(emitter, { r.oneLiteral() });
+
+		return r.oneLiteral();
+	}else if(sorter.size() < target) {
+		typename ClauseEmitter::Variable r = allocator.allocate();
+	
 		// trivial case 2: the sorter is not big enough to reach the limit
-		encodeuzk::emit(emitter, { r.inverse() });
-		if(debugRhs) {
-			std::cout << "s[" << i << "] >= " << lim << ": ";
-			std::cout << r.toNumber() << " <-> false" << std::endl;
-		}
-	}else{
-		encodeuzk::emit(emitter, { s.output(lim - 1).inverse(), r });
-		encodeuzk::emit(emitter, { r.inverse(), s.output(lim - 1) });
-		if(debugRhs) {
-			std::cout << "s[" << i << "] >= " << lim << ": ";
-			std::cout << r.toNumber() << " <-> " << s.output(lim - 1).inverse().toNumber() << " (out)" << std::endl;
+		encodeuzk::emit(emitter, { r.zeroLiteral() });
+		
+		return r.oneLiteral();
+	}else if(divisor <= target) {
+		typename ClauseEmitter::Variable r = allocator.allocate();
+	
+		// trivial case 3: the modulus is not big enough to reach the limit
+		encodeuzk::emit(emitter, { r.zeroLiteral() });
+		
+		return r.oneLiteral();
+	}
+	
+	std::vector<typename ClauseEmitter::Literal> disjunction;
+	for(int k = 0; k < sorter.size(); k += divisor) {
+		if(k + target - 1 >= sorter.size())
+			break;
+
+		if(k + divisor - 1 < sorter.size()) {
+			disjunction.push_back(encodeuzk::computeAnd(allocator, emitter,
+					sorter.output(k + target - 1), sorter.output(k + divisor - 1).inverse()));
+		}else{
+			disjunction.push_back(sorter.output(k + target - 1));
 		}
 	}
+	
+	return encodeuzk::computeOrN(allocator, emitter,
+			disjunction.begin(), disjunction.end());
 }
 
 // generates the constraint (sorters >= rhs)
 template<typename VarAllocator, typename ClauseEmitter>
-void buildGeRhs(VarAllocator &allocator, ClauseEmitter &emitter,
-		int i, NumberSeq rhs, NumberSeq base,
-		typename ClauseEmitter::Literal r, std::vector<Sorter<typename ClauseEmitter::Literal>> &sorters) {
-	if(i == 0) {
-		// trivial case: every number is >= 0
-		encodeuzk::emit(emitter, { r });
-		if(debugRhs)
-			std::cout << r.toNumber() << " <-> true" << std::endl;
-	}else{
-		i--;
-		Sorter<typename ClauseEmitter::Literal> &s = sorters[i];
-		
-		typename ClauseEmitter::Literal p = allocator.allocate().oneLiteral();
-		buildGeRhs(allocator, emitter, i, rhs, base, p, sorters);
-		
-		typename ClauseEmitter::Literal gt = allocator.allocate().oneLiteral();
-		typename ClauseEmitter::Literal ge = allocator.allocate().oneLiteral();
-		if(i == base.length() - 1) {
-			makeGe(allocator, emitter, sorters, i, rhs[i] + 1, gt);
-			makeGe(allocator, emitter, sorters, i, rhs[i], ge);
-		}else{
-			makeModGe(allocator, emitter, sorters, i, base[i+1], rhs[i] + 1, gt);
-			makeModGe(allocator, emitter, sorters, i, base[i+1], rhs[i], ge);
-		}
-		
-		// q <-> ge & p
-		typename ClauseEmitter::Literal q = allocator.allocate().oneLiteral();
-		encodeuzk::emit(emitter, { q.inverse(), ge });
-		encodeuzk::emit(emitter, { q.inverse(), p });
-		encodeuzk::emit(emitter, { ge.inverse(), p.inverse(), q });
-		if(debugRhs)
-			std::cout << q.toNumber() << " <-> " << ge.toNumber() << " (ge) AND " << p.toNumber() << " (prev) " << std::endl;
+typename ClauseEmitter::Literal computeSorterNetworkGe(VarAllocator &allocator, ClauseEmitter &emitter,
+		std::vector<Sorter<typename ClauseEmitter::Literal>> &sorters,
+		NumberSeq base, NumberSeq rhs, int i) {
 
-		// r <-> gt | q
-		encodeuzk::emit(emitter, { r.inverse(), gt, q });
-		encodeuzk::emit(emitter, { gt.inverse(), r });
-		encodeuzk::emit(emitter, { q.inverse(), r });
+	if(i == 0) {
+		typename ClauseEmitter::Variable r = allocator.allocate();
+
+		// trivial case: every number is >= 0
+		encodeuzk::emit(emitter, { r.oneLiteral() });
 		if(debugRhs)
-			std::cout << r.toNumber() << " <-> " << gt.toNumber() << " (gt) OR " << q.toNumber() << std::endl;
+			std::cout << r.oneLiteral().toNumber() << " <-> true" << std::endl;
+
+		return r.oneLiteral();
 	}
+
+	i--;
+	Sorter<typename ClauseEmitter::Literal> &s = sorters[i];
+	
+	typename ClauseEmitter::Literal  p
+			= computeSorterNetworkGe(allocator, emitter, sorters, base, rhs, i);
+	
+	typename ClauseEmitter::Literal gt;
+	typename ClauseEmitter::Literal ge;
+	if(i == base.length() - 1) {
+		gt = computeSorterGe(allocator, emitter, sorters[i], rhs[i] + 1);
+		ge = computeSorterGe(allocator, emitter, sorters[i], rhs[i]);
+	}else{
+		gt = computeSorterRemainderGe(allocator, emitter, sorters[i], base[i + 1], rhs[i] + 1);
+		ge = computeSorterRemainderGe(allocator, emitter, sorters[i], base[i + 1], rhs[i]);
+	}
+	
+	return encodeuzk::computeOr(allocator, emitter, gt,
+			encodeuzk::computeAnd(allocator, emitter, ge, p));
+}
+
+template<typename VarAllocator, typename ClauseEmitter>
+typename ClauseEmitter::Literal computeSorterNetworkGe(VarAllocator &allocator, ClauseEmitter &emitter,
+		std::vector<Sorter<typename ClauseEmitter::Literal>> &sorters,
+		NumberSeq base, NumberSeq rhs) {
+	return computeSorterNetworkGe(allocator, emitter, sorters, base, rhs,
+			sorters.size());
 }
 
 template<typename VarAllocator, typename ClauseEmitter>
@@ -326,12 +285,12 @@ void maxsatRhs(VarAllocator &allocator, ClauseEmitter &emitter,
 		for(int i = 0; i < rhs.length(); i++)
 			std::cout << "rhs[" << i << "]: " << rhs[i] << std::endl;
 
-	typename ClauseEmitter::Variable v = allocator.allocate();
-	buildGeRhs(allocator, emitter, sorters.size(), rhs, base, v.oneLiteral(), sorters);
+	typename ClauseEmitter::Literal r
+			= computeSorterNetworkGe(allocator, emitter, sorters, base, rhs);
 	if(debugRhs)
-		std::cout << "objective: " << v.oneLiteral().toNumber() << std::endl;
+		std::cout << "objective: " << r.toNumber() << std::endl;
 
-	encodeuzk::emit(emitter, { v.oneLiteral() });
+	encodeuzk::forceTrue(allocator, emitter, r);;
 }
 
 template<typename Solver>
