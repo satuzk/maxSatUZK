@@ -4,69 +4,69 @@
 namespace maxsatuzk {
 
 //---------------------------------------------------------------------------//
-// Variable functions                                                        //
+// InVariable functions                                                        //
 //---------------------------------------------------------------------------//
 
-Variable Variable::null() {
-	return Variable(0);
+InVariable InVariable::null() {
+	return InVariable(0);
 }
-Variable Variable::from_index(int32_t index) {
-	return Variable(index);
+InVariable InVariable::from_index(int32_t index) {
+	return InVariable(index);
 }	
-bool Variable::operator ==(const Variable v) const {
+bool InVariable::operator ==(const InVariable v) const {
 	return p_index == v.p_index;
 }
-int32_t Variable::index() const {
+int32_t InVariable::index() const {
 	return p_index;
 }
-int Variable::num() const {
+int InVariable::num() const {
 	return p_index;
 }
-Literal Variable::pos() const {
-	return Literal::from_index(p_index * 2);
+InLiteral InVariable::pos() const {
+	return InLiteral::from_index(p_index * 2);
 }
-Literal Variable::neg() const {
-	return Literal::from_index(p_index * 2 + 1);
+InLiteral InVariable::neg() const {
+	return InLiteral::from_index(p_index * 2 + 1);
 }
 
 //---------------------------------------------------------------------------//
-// Literal functions                                                         //
+// InLiteral functions                                                         //
 //---------------------------------------------------------------------------//
 
-Literal Literal::null() {
-	return Literal(0);
+InLiteral InLiteral::null() {
+	return InLiteral(0);
 }
-Literal Literal::from_index(int32_t index) {
-	return Literal(index);	
+InLiteral InLiteral::from_index(int32_t index) {
+	return InLiteral(index);	
 }
-bool Literal::operator ==(const Literal l) const {
+bool InLiteral::operator ==(const InLiteral l) const {
 	return p_index == l.p_index;
 }
-int32_t Literal::index() const {
+int32_t InLiteral::index() const {
 	return p_index;
 }
-int Literal::sign() const {
+int InLiteral::sign() const {
 	if(p_index % 2 == 0)
 		return 1;
 	return -1;
 }
-int Literal::num() const {
+int InLiteral::num() const {
 	return sign() * var().num();
 }
-Variable Literal::var() const {
-	return Variable::from_index(p_index / 2);
+InVariable InLiteral::var() const {
+	return InVariable::from_index(p_index / 2);
 }
-Literal Literal::operator-() {
+InLiteral InLiteral::operator-() {
 	if(sign() > 0)
 		return var().neg();
 	return var().pos();
 }
 
 //---------------------------------------------------------------------------//
-// definition of ClauseSpace functions                                       //
+// definition of InClauseSpace functions                                       //
 //---------------------------------------------------------------------------//
 
-inline ClauseRef ClauseSpace::allocate(int length) {
+inline InClauseRef InClauseSpace::allocate(int length) {
 	int index = p_heads.size();
 
 	HeadStruct new_head;
@@ -77,83 +77,83 @@ inline ClauseRef ClauseSpace::allocate(int length) {
 	for(int i = 0; i < length; i++)
 		p_literals.push_back(0);
 
-	return ClauseRef(*this, index);
+	return InClauseRef(*this, index);
 }
 
-inline ClauseSpace::RefIterator ClauseSpace::refsBegin() {
+inline InClauseSpace::RefIterator InClauseSpace::refsBegin() {
 	return RefIterator(*this, 0);
 }
-inline ClauseSpace::RefIterator ClauseSpace::refsEnd() {
+inline InClauseSpace::RefIterator InClauseSpace::refsEnd() {
 	return RefIterator(*this, p_heads.size());
 }
 
-inline ClauseRef ClauseSpace::RefIterator::operator* () {
-	return ClauseRef(p_space, p_index);
+inline InClauseRef InClauseSpace::RefIterator::operator* () {
+	return InClauseRef(p_space, p_index);
 }
-inline void ClauseSpace::RefIterator::operator++ () {
+inline void InClauseSpace::RefIterator::operator++ () {
 	p_index++;
 }
-inline bool ClauseSpace::RefIterator::operator== (const RefIterator &other) {
+inline bool InClauseSpace::RefIterator::operator== (const RefIterator &other) {
 	return p_index == other.p_index;
 }
-inline bool ClauseSpace::RefIterator::operator!= (const RefIterator &other) {
+inline bool InClauseSpace::RefIterator::operator!= (const RefIterator &other) {
 	return !(*this == other);
 }
 
 //---------------------------------------------------------------------------//
-// definition of ClauseRef functions                                         //
+// definition of InClauseRef functions                                         //
 //---------------------------------------------------------------------------//
-inline ClauseSpace &ClauseRef::space() {
+inline InClauseSpace &InClauseRef::space() {
 	return p_space;
 }
-inline int ClauseRef::index() {
+inline int InClauseRef::index() {
 	return p_index;
 }
 
-inline int ClauseRef::length() {
+inline int InClauseRef::length() {
 	return accessHead().length;
 }
-inline Literal ClauseRef::getLiteral(int index) {
-	return Literal::from_index(*std::next(begin(), index));
+inline InLiteral InClauseRef::getLiteral(int index) {
+	return InLiteral::from_index(*std::next(begin(), index));
 }
-inline void ClauseRef::setLiteral(int index, Literal literal) {
+inline void InClauseRef::setLiteral(int index, InLiteral literal) {
 	*std::next(begin(), index) = literal.index();
 }
 
-inline ClauseLitIterator ClauseRef::begin() {
-	return ClauseLitIterator(p_space, p_index, 0);
+inline InClauseLitIterator InClauseRef::begin() {
+	return InClauseLitIterator(p_space, p_index, 0);
 }
-inline ClauseLitIterator ClauseRef::end() {
-	return ClauseLitIterator(p_space, p_index, accessHead().length);
+inline InClauseLitIterator InClauseRef::end() {
+	return InClauseLitIterator(p_space, p_index, accessHead().length);
 }
 
-inline Weight ClauseRef::getWeight() {
+inline Weight InClauseRef::getWeight() {
 	return accessHead().weight;
 }
-inline void ClauseRef::setWeight(Weight weight) {
+inline void InClauseRef::setWeight(Weight weight) {
 	accessHead().weight = weight;
 }
 
-inline ClauseSpace::HeadStruct &ClauseRef::accessHead() {
+inline InClauseSpace::HeadStruct &InClauseRef::accessHead() {
 	return p_space.p_heads[p_index];
 }
 
 //---------------------------------------------------------------------------//
-// definition of ClauseLitIterator functions                                 //
+// definition of InClauseLitIterator functions                                 //
 //---------------------------------------------------------------------------//
 
-inline LiteralId &ClauseLitIterator::operator* () {
+inline LiteralId &InClauseLitIterator::operator* () {
 	return p_space.p_literals[accessHead().pointer + p_index];
 }
 	
-inline void ClauseLitIterator::operator++ () {
+inline void InClauseLitIterator::operator++ () {
 	p_index++;
 }
-inline bool ClauseLitIterator::operator== (const ClauseLitIterator &other) {
+inline bool InClauseLitIterator::operator== (const InClauseLitIterator &other) {
 	return p_index == other.p_index;
 }
 
-inline ClauseSpace::HeadStruct &ClauseLitIterator::accessHead() {
+inline InClauseSpace::HeadStruct &InClauseLitIterator::accessHead() {
 	return p_space.p_heads[p_clauseId];
 }
 

@@ -49,7 +49,7 @@
 
 namespace maxsatuzk {
 
-class SolverUzk : public Solver {
+class SolverUzk {
 private:
 	struct BaseDefs {
 		typedef uint32_t LiteralIndex;
@@ -66,19 +66,83 @@ private:
 	};
 
 	typedef satuzk::Config<BaseDefs, Hooks> Config;
+public:
+	typedef Config::Literal Literal;
+	typedef Config::Variable Variable;
+
+	class HardAllocator {
+	public:
+		typedef Config::Literal Literal;
+		typedef Config::Variable Variable;
+		
+		HardAllocator(SolverUzk &solver) : p_solver(solver) { }
+		
+		Variable allocate() {
+			return p_solver.p_config.varAlloc();
+		}
+
+	private:
+		SolverUzk &p_solver;
+	};
+
+	class HardEmitter {
+	public:
+		typedef Config::Literal Literal;
+		typedef Config::Variable Variable;
+
+		HardEmitter(SolverUzk &solver) : p_solver(solver) { }
+
+		template<typename Iterator>
+		void emit(Iterator begin, Iterator end) {
+			p_solver.p_config.inputClause(end - begin, begin, end);
+		}
+	
+	private:
+		SolverUzk &p_solver;
+	};
+	
+	class ContextEmitter {
+	public:
+		typedef Config::Literal Literal;
+		typedef Config::Variable Variable;
+
+		ContextEmitter(SolverUzk &solver) : p_solver(solver) {
+			p_contextVar = p_solver.p_config.varAlloc();
+			p_solver.p_config.lockVariable(p_contextVar);
+			p_solver.p_config.assumptionEnable(p_contextVar.zeroLiteral());
+		}
+
+		~ContextEmitter() {
+			p_solver.p_config.expellContaining(p_contextVar.oneLiteral());
+			p_solver.p_config.expellContaining(p_contextVar.zeroLiteral());
+		}
+
+		template<typename Iterator>
+		void emit(Iterator begin, Iterator end) {
+			std::vector<Literal> lits(begin, end);
+			lits.push_back(p_contextVar.oneLiteral());
+
+			p_solver.p_config.inputClause(lits.size(), lits.begin(), lits.end());
+		}
+	
+	private:
+		SolverUzk &p_solver;
+		Variable p_contextVar;
+	};
 
 public:
+	enum class Result {
+		kNone, kBreak, kError, kHardUnsat, kSoftUnsat, kSat
+	};
+
 	SolverUzk(int config_id) : p_config(Hooks(), config_id), p_numRuns(0) {
 	}
 
-	void reserveVars(int n);
 	void lockVariable(Variable variable);
-	virtual void setupLhs(ClauseSpace &f);
-	virtual void updateRhs(ClauseSpace &f);
-	virtual void solveStart();
-	virtual Result solveStep();
-	virtual void solveReset();
-	virtual bool litInModel(Literal literal);
+	void solveStart();
+	Result solveStep();
+	void solveReset();
+	bool litInModel(Literal literal);
 	
 private:
 	Config p_config;

@@ -9,74 +9,74 @@ typedef uint32_t LiteralId;
 
 static const Weight kHardWeight = -1;
 
-class Variable;
-class Literal;
-class ClauseSpace;
-class ClauseRef;
-class ClauseLitIterator;
+class InVariable;
+class InLiteral;
+class InClauseSpace;
+class InClauseRef;
+class InClauseLitIterator;
 
-class Variable {
+class InVariable {
 public:
 	typedef int32_t index_type;
-	typedef Literal literal;
+	typedef InLiteral literal;
 	
-	Variable() : p_index(0) { }
-	static inline Variable null();
-	static inline Variable from_index(int32_t index);
-	inline bool operator ==(const Variable v) const;
+	InVariable() : p_index(0) { }
+	static inline InVariable null();
+	static inline InVariable from_index(int32_t index);
+	inline bool operator ==(const InVariable v) const;
 	inline int32_t index() const;
 	inline int num() const;
 	inline literal pos() const;
 	inline literal neg() const;
 
 private:
-	Variable(int32_t idx) : p_index(idx) { }
+	InVariable(int32_t idx) : p_index(idx) { }
 	
 	int32_t p_index;
 };
 
-class Literal {
+class InLiteral {
 public:
 	typedef int32_t index_type;
-	typedef Variable variable;
+	typedef InVariable variable;
 
-	Literal() : p_index(0) { }
-	static inline Literal null();
-	static inline Literal from_index(int32_t index);
-	inline bool operator ==(const Literal l) const;
+	InLiteral() : p_index(0) { }
+	static inline InLiteral null();
+	static inline InLiteral from_index(int32_t index);
+	inline bool operator ==(const InLiteral l) const;
 	inline int32_t index() const;
 	inline int sign() const;
 	inline int num() const;
 	inline variable var() const;
-	inline Literal operator -();
+	inline InLiteral operator -();
 
 private:
-	Literal(int32_t idx) : p_index(idx) { }
+	InLiteral(int32_t idx) : p_index(idx) { }
 
 	int32_t p_index;
 };
 
-class ClauseSpace {
-friend class ClauseRef;
-friend class ClauseLitIterator;
+class InClauseSpace {
+friend class InClauseRef;
+friend class InClauseLitIterator;
 public:
-	class RefIterator : public std::iterator<std::forward_iterator_tag, ClauseRef> {
+	class RefIterator : public std::iterator<std::forward_iterator_tag, InClauseRef> {
 	public:
-		RefIterator(ClauseSpace &space, int index)
+		RefIterator(InClauseSpace &space, int index)
 				: p_space(space), p_index(index) {
 		}
 		
-		ClauseRef operator* ();
+		InClauseRef operator* ();
 		void operator++ ();
 		
 		bool operator== (const RefIterator &other);
 		bool operator!= (const RefIterator &other);
 	private:
-		ClauseSpace &p_space;
+		InClauseSpace &p_space;
 		int p_index;
 	};
 
-	ClauseRef allocate(int length);
+	InClauseRef allocate(int length);
 	RefIterator refsBegin();
 	RefIterator refsEnd();
 
@@ -91,51 +91,51 @@ private:
 	std::vector<LiteralId> p_literals;
 };
 
-class ClauseRef {
+class InClauseRef {
 public:
-	ClauseRef(ClauseSpace &space, int index)
+	InClauseRef(InClauseSpace &space, int index)
 		: p_space(space), p_index(index) { }
 
-	ClauseSpace &space();
+	InClauseSpace &space();
 	int index();
 	
 	int length();
-	Literal getLiteral(int index);
-	void setLiteral(int index, Literal literal);
+	InLiteral getLiteral(int index);
+	void setLiteral(int index, InLiteral literal);
 
-	ClauseLitIterator begin();
-	ClauseLitIterator end();
+	InClauseLitIterator begin();
+	InClauseLitIterator end();
 
 	Weight getWeight();
 	void setWeight(Weight weight);
 
 private:
-	ClauseSpace::HeadStruct &accessHead();
+	InClauseSpace::HeadStruct &accessHead();
 	
-	ClauseSpace &p_space;
+	InClauseSpace &p_space;
 	int p_index;
 };
 
-class ClauseLitIterator : public std::iterator<std::forward_iterator_tag, LiteralId> {
+class InClauseLitIterator : public std::iterator<std::forward_iterator_tag, LiteralId> {
 public:
-	ClauseLitIterator(ClauseSpace &space, int clause_id, int index)
+	InClauseLitIterator(InClauseSpace &space, int clause_id, int index)
 			: p_space(space), p_clauseId(clause_id), p_index(index) { }
 
 	LiteralId &operator* ();
 	
 	void operator++ ();
-	bool operator== (const ClauseLitIterator &other);
+	bool operator== (const InClauseLitIterator &other);
 
 private:	
-	ClauseSpace::HeadStruct &accessHead();
+	InClauseSpace::HeadStruct &accessHead();
 	
-	ClauseSpace &p_space;
+	InClauseSpace &p_space;
 	int p_clauseId;
 	int p_index;
 };
 
 struct VarAllocator {
-	typedef Variable variable;
+	typedef InVariable variable;
 
 	VarAllocator() : p_nextVar(1), p_varLimit(std::numeric_limits<int>::max()) { }
 	VarAllocator(int first, int limit) : p_nextVar(first), p_varLimit(limit) { }
@@ -157,7 +157,7 @@ struct VarAllocator {
 
 class VarHashFunc {
 public:
-	std::size_t operator() (const Variable v) const {
+	std::size_t operator() (const InVariable v) const {
 		return v.index();
 	}
 };

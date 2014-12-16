@@ -137,7 +137,7 @@ public:
 		kNone, kStandard, kWeighted
 	};
 	
-	void parse(ClauseSpace &f) {
+	void parse(InClauseSpace &f) {
 		CnfType cnf = CnfType::kNone;
 		int n_vars = -1, n_clauses = -1;
 		int64_t top = -1;
@@ -209,9 +209,9 @@ public:
 				if(lits.size() == 0)
 					throw std::runtime_error("File contains empty clause");
 
-				ClauseRef c = f.allocate(lits.size());
+				InClauseRef c = f.allocate(lits.size());
 				for(int i = 0; i < lits.size(); i++) {
-					Variable var = Variable::from_index(lits[i] < 0 ? -lits[i] : lits[i]);
+					InVariable var = InVariable::from_index(lits[i] < 0 ? -lits[i] : lits[i]);
 					c.setLiteral(i, lits[i] < 0 ? var.neg() : var.pos());
 				}
 				c.setWeight(weight);
