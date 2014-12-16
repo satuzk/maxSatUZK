@@ -21,153 +21,6 @@
 
 namespace maxsatuzk {
 
-template<typename Literal>
-using SorterLits = std::vector<Literal>;
-
-template<typename Literal>
-using SorterNetwork = std::vector<SorterLits<Literal>>;
-
-template<typename VarAllocator, typename ClauseEmitter>
-SorterNetwork<typename ClauseEmitter::Literal>
-computeSorterNetwork(VarAllocator &allocator, ClauseEmitter &emitter,
-		const std::vector<typename ClauseEmitter::Literal> &lits,
-		const std::vector<Weight> &weights, const std::vector<int> &base) {
-	// we need a literal that is always zero to simplify sorting
-	typename ClauseEmitter::Literal null_lit = allocator.allocate().oneLiteral();
-	encodeuzk::emit(emitter, { null_lit.inverse() });
-	
-	SorterNetwork<typename ClauseEmitter::Literal> sorters;
-
-	for(int k = 0; k < base.size(); k++) {
-		std::vector<typename ClauseEmitter::Literal> ins;
-
-		// add carry bits from previous sorter as input
-		if(k > 0) {
-			for(int j = base[k] - 1; j < sorters.back().size(); j += base[k])
-				ins.push_back(sorters.back()[j]);
-		}
-
-		for(int i = 0; i < lits.size(); i++) {
-			std::vector<int> weight = convertBase(weights[i], base);
-			for(int j = 0; j < weight[k]; j++)
-				ins.push_back(lits[i]);
-		}
-
-		std::vector<typename ClauseEmitter::Literal> outs
-				= encodeuzk::computePwSort(allocator, emitter, ins, null_lit);
-		std::cout << "c Size of sorter " << k << ": " << outs.size() << std::endl;
-		sorters.push_back(outs);
-	}
-
-	return sorters;
-}
-
-// produces a constraint that is true iff sorter >= target
-template<typename VarAllocator, typename ClauseEmitter>
-typename ClauseEmitter::Literal computeSorterGe(VarAllocator &allocator, ClauseEmitter &emitter,
-		const SorterLits<typename ClauseEmitter::Literal> &sorter, int target) {
-	if(target == 0) {
-		typename ClauseEmitter::Variable r = allocator.allocate();
-
-		// trivial case 1: every number is >= 0
-		encodeuzk::emit(emitter, { r.oneLiteral() });
-
-		return r.oneLiteral();
-	}else if(sorter.size() < target) {
-		typename ClauseEmitter::Variable r = allocator.allocate();
-
-		// trivial case 2: the sorter is not big enough to reach the limit
-		encodeuzk::emit(emitter, { r.zeroLiteral() });
-
-		return r.oneLiteral();
-	}
-
-	return sorter[target - 1];
-}
-
-// produces a constraint that is true iff sorter % divisor >= target
-template<typename VarAllocator, typename ClauseEmitter>
-typename ClauseEmitter::Literal computeSorterRemainderGe(VarAllocator &allocator, ClauseEmitter &emitter,
-		const SorterLits<typename ClauseEmitter::Literal> &sorter, int divisor, int target) {
-	if(target == 0) {
-		typename ClauseEmitter::Variable r = allocator.allocate();
-	
-		// trivial case 1: every number is >= 0
-		encodeuzk::emit(emitter, { r.oneLiteral() });
-
-		return r.oneLiteral();
-	}else if(sorter.size() < target) {
-		typename ClauseEmitter::Variable r = allocator.allocate();
-	
-		// trivial case 2: the sorter is not big enough to reach the limit
-		encodeuzk::emit(emitter, { r.zeroLiteral() });
-		
-		return r.oneLiteral();
-	}else if(divisor <= target) {
-		typename ClauseEmitter::Variable r = allocator.allocate();
-	
-		// trivial case 3: the modulus is not big enough to reach the limit
-		encodeuzk::emit(emitter, { r.zeroLiteral() });
-		
-		return r.oneLiteral();
-	}
-	
-	std::vector<typename ClauseEmitter::Literal> disjunction;
-	for(int k = 0; k < sorter.size(); k += divisor) {
-		if(k + target - 1 >= sorter.size())
-			break;
-
-		if(k + divisor - 1 < sorter.size()) {
-			disjunction.push_back(encodeuzk::computeAnd(allocator, emitter,
-					sorter[k + target - 1], sorter[k + divisor - 1].inverse()));
-		}else{
-			disjunction.push_back(sorter[k + target - 1]);
-		}
-	}
-	
-	return encodeuzk::computeOrN(allocator, emitter,
-			disjunction.begin(), disjunction.end());
-}
-
-// generates the constraint (sorters >= rhs)
-template<typename VarAllocator, typename ClauseEmitter>
-typename ClauseEmitter::Literal computeSorterNetworkGe(VarAllocator &allocator, ClauseEmitter &emitter,
-		const SorterNetwork<typename ClauseEmitter::Literal> &sorters,
-		const std::vector<int> &base, const std::vector<int> &rhs, int i) {
-	if(i == 0) {
-		typename ClauseEmitter::Variable r = allocator.allocate();
-
-		// trivial case: every number is >= 0
-		encodeuzk::emit(emitter, { r.oneLiteral() });
-		
-		return r.oneLiteral();
-	}
-
-	typename ClauseEmitter::Literal p
-			= computeSorterNetworkGe(allocator, emitter, sorters, base, rhs, i - 1);
-	
-	typename ClauseEmitter::Literal gt;
-	typename ClauseEmitter::Literal ge;
-	if(i == base.size()) {
-		gt = computeSorterGe(allocator, emitter, sorters[i - 1], rhs[i - 1] + 1);
-		ge = computeSorterGe(allocator, emitter, sorters[i - 1], rhs[i - 1]);
-	}else{
-		gt = computeSorterRemainderGe(allocator, emitter, sorters[i - 1], base[i], rhs[i - 1] + 1);
-		ge = computeSorterRemainderGe(allocator, emitter, sorters[i - 1], base[i], rhs[i - 1]);
-	}
-	
-	return encodeuzk::computeOr(allocator, emitter, gt,
-			encodeuzk::computeAnd(allocator, emitter, ge, p));
-}
-
-template<typename VarAllocator, typename ClauseEmitter>
-typename ClauseEmitter::Literal computeSorterNetworkGe(VarAllocator &allocator, ClauseEmitter &emitter,
-		const SorterNetwork<typename ClauseEmitter::Literal> &sorters,
-		const std::vector<int> &base, const std::vector<int> &rhs) {
-	return computeSorterNetworkGe(allocator, emitter, sorters, base, rhs,
-			sorters.size());
-}
-
 template<typename VarAllocator, typename ClauseEmitter>
 void maxsatHard(VarAllocator &allocator, ClauseEmitter &emitter,
 		InClauseSpace &in,
@@ -201,7 +54,7 @@ void maxsatHard(VarAllocator &allocator, ClauseEmitter &emitter,
 template<typename VarAllocator, typename ClauseEmitter>
 void maxsatLhs(VarAllocator &allocator, ClauseEmitter &emitter,
 		InClauseSpace &in, std::vector<int> &base,
-		SorterNetwork<typename ClauseEmitter::Literal> &sorters,
+		encodeuzk::SorterNetwork<typename ClauseEmitter::Literal> &sorters,
 		std::vector<typename ClauseEmitter::Literal> &rel_lits,
 		std::vector<Weight> &rel_weights,
 		std::unordered_map<InVariable, typename ClauseEmitter::Variable, VarHashFunc> &variable_map) {
@@ -227,18 +80,18 @@ void maxsatLhs(VarAllocator &allocator, ClauseEmitter &emitter,
 		rel_weights.push_back(in_clause.getWeight());
 	}
 
-	sorters = computeSorterNetwork(allocator, emitter, rel_lits, rel_weights, base);
+	sorters = encodeuzk::computeSorterNetwork(allocator, emitter, rel_lits, rel_weights, base);
 }
 
 // generates a formula, that is satisfiable iff at least min soft clauses can be satisfied
 template<typename VarAllocator, typename ClauseEmitter>
 void maxsatRhs(VarAllocator &allocator, ClauseEmitter &emitter,
 		std::vector<int> &base, int min,
-		SorterNetwork<typename ClauseEmitter::Literal> &sorters) {
+		encodeuzk::SorterNetwork<typename ClauseEmitter::Literal> &sorters) {
 	std::vector<int> rhs = convertBase(min, base);
 
 	typename ClauseEmitter::Literal lit
-			= computeSorterNetworkGe(allocator, emitter, sorters, base, rhs);
+			= encodeuzk::computeSorterNetworkGe(allocator, emitter, sorters, base, rhs);
 	encodeuzk::forceTrue(allocator, emitter, lit);;
 }
 
@@ -255,7 +108,7 @@ void solve(InClauseSpace &in, std::vector<int> &base, Weight initial_lb, Weight 
 			VarHashFunc> variable_map;
 	maxsatHard(hard_allocator, hard_emitter, in, variable_map);
 
-	SorterNetwork<typename Solver::Literal> sorters;
+	encodeuzk::SorterNetwork<typename Solver::Literal> sorters;
 	std::vector<typename Solver::Literal> rel_lits;
 	std::vector<Weight> rel_weights;
 	maxsatLhs(hard_allocator, hard_emitter, in, base, sorters, rel_lits, rel_weights, variable_map);
