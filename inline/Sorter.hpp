@@ -21,9 +21,6 @@
 
 namespace maxsatuzk {
 
-static const bool debugSorters = false;
-static const bool debugRhs = false;
-
 template<typename Literal>
 using SorterLits = std::vector<Literal>;
 
@@ -46,20 +43,14 @@ computeSorterNetwork(VarAllocator &allocator, ClauseEmitter &emitter,
 
 		// add carry bits from previous sorter as input
 		if(k > 0) {
-			for(int j = base[k] - 1; j < sorters.back().size(); j += base[k]) {
+			for(int j = base[k] - 1; j < sorters.back().size(); j += base[k])
 				ins.push_back(sorters.back()[j]);
-				if(debugSorters)
-					std::cout << "carry from " << (k - 1) << " to " << k << std::endl;
-			}
 		}
 
 		for(int i = 0; i < lits.size(); i++) {
 			std::vector<int> weight = convertBase(weights[i], base);
-			for(int j = 0; j < weight[k]; j++) {
+			for(int j = 0; j < weight[k]; j++)
 				ins.push_back(lits[i]);
-				if(debugSorters)
-					std::cout << "s[" << k << "] weight" << std::endl;
-			}
 		}
 
 		std::vector<typename ClauseEmitter::Literal> outs
@@ -148,9 +139,7 @@ typename ClauseEmitter::Literal computeSorterNetworkGe(VarAllocator &allocator, 
 
 		// trivial case: every number is >= 0
 		encodeuzk::emit(emitter, { r.oneLiteral() });
-		if(debugRhs)
-			std::cout << r.oneLiteral().toNumber() << " <-> true" << std::endl;
-
+		
 		return r.oneLiteral();
 	}
 
@@ -247,16 +236,10 @@ void maxsatRhs(VarAllocator &allocator, ClauseEmitter &emitter,
 		std::vector<int> &base, int min,
 		SorterNetwork<typename ClauseEmitter::Literal> &sorters) {
 	std::vector<int> rhs = convertBase(min, base);
-	if(debugRhs)
-		for(int i = 0; i < rhs.size(); i++)
-			std::cout << "rhs[" << i << "]: " << rhs[i] << std::endl;
 
-	typename ClauseEmitter::Literal r
+	typename ClauseEmitter::Literal lit
 			= computeSorterNetworkGe(allocator, emitter, sorters, base, rhs);
-	if(debugRhs)
-		std::cout << "objective: " << r.toNumber() << std::endl;
-
-	encodeuzk::forceTrue(allocator, emitter, r);;
+	encodeuzk::forceTrue(allocator, emitter, lit);;
 }
 
 template<typename Solver>
