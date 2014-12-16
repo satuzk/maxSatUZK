@@ -143,7 +143,6 @@ template<typename VarAllocator, typename ClauseEmitter>
 typename ClauseEmitter::Literal computeSorterNetworkGe(VarAllocator &allocator, ClauseEmitter &emitter,
 		const SorterNetwork<typename ClauseEmitter::Literal> &sorters,
 		const std::vector<int> &base, const std::vector<int> &rhs, int i) {
-
 	if(i == 0) {
 		typename ClauseEmitter::Variable r = allocator.allocate();
 
@@ -155,19 +154,17 @@ typename ClauseEmitter::Literal computeSorterNetworkGe(VarAllocator &allocator, 
 		return r.oneLiteral();
 	}
 
-	i--;
-	
-	typename ClauseEmitter::Literal  p
-			= computeSorterNetworkGe(allocator, emitter, sorters, base, rhs, i);
+	typename ClauseEmitter::Literal p
+			= computeSorterNetworkGe(allocator, emitter, sorters, base, rhs, i - 1);
 	
 	typename ClauseEmitter::Literal gt;
 	typename ClauseEmitter::Literal ge;
-	if(i == base.size() - 1) {
-		gt = computeSorterGe(allocator, emitter, sorters[i], rhs[i] + 1);
-		ge = computeSorterGe(allocator, emitter, sorters[i], rhs[i]);
+	if(i == base.size()) {
+		gt = computeSorterGe(allocator, emitter, sorters[i - 1], rhs[i - 1] + 1);
+		ge = computeSorterGe(allocator, emitter, sorters[i - 1], rhs[i - 1]);
 	}else{
-		gt = computeSorterRemainderGe(allocator, emitter, sorters[i], base[i + 1], rhs[i] + 1);
-		ge = computeSorterRemainderGe(allocator, emitter, sorters[i], base[i + 1], rhs[i]);
+		gt = computeSorterRemainderGe(allocator, emitter, sorters[i - 1], base[i], rhs[i - 1] + 1);
+		ge = computeSorterRemainderGe(allocator, emitter, sorters[i - 1], base[i], rhs[i - 1]);
 	}
 	
 	return encodeuzk::computeOr(allocator, emitter, gt,
