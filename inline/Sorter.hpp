@@ -24,49 +24,30 @@ namespace maxsatuzk {
 static const bool debugSorters = false;
 static const bool debugRhs = false;
 
-uint64_t statComparators = 0;
+template<typename Literal>
+using SorterLits = std::vector<Literal>;
 
 template<typename Literal>
-class Sorter {
-public:
-	Sorter(int size) {
-		p_inputs.resize(size, Literal::illegalLit());
-		p_outputs.resize(size, Literal::illegalLit());
-	}
-
-	Literal &input(int index) {
-		return p_inputs[index];
-	}
-	Literal &output(int index) {
-		return p_outputs[index];
-	}
-
-	int size() {
-		return p_inputs.size();
-	}
-
-	std::vector<Literal> p_inputs;
-	std::vector<Literal> p_outputs;
-};
+using SorterNetwork = std::vector<SorterLits<Literal>>;
 
 template<typename VarAllocator, typename ClauseEmitter>
-void buildSorters(VarAllocator &allocator, ClauseEmitter &emitter,
-		std::vector<typename ClauseEmitter::Literal> &lits,
-		std::vector<Weight> &weights,
-		std::vector<int> base,
-		std::vector<Sorter<typename ClauseEmitter::Literal>> &sorters) {
+SorterNetwork<typename ClauseEmitter::Literal>
+computeSorterNetwork(VarAllocator &allocator, ClauseEmitter &emitter,
+		const std::vector<typename ClauseEmitter::Literal> &lits,
+		const std::vector<Weight> &weights, const std::vector<int> &base) {
 	// we need a literal that is always zero to simplify sorting
 	typename ClauseEmitter::Literal null_lit = allocator.allocate().oneLiteral();
 	encodeuzk::emit(emitter, { null_lit.inverse() });
+	
+	SorterNetwork<typename ClauseEmitter::Literal> sorters;
 
 	for(int k = 0; k < base.size(); k++) {
 		std::vector<typename ClauseEmitter::Literal> ins;
 
 		// add carry bits from previous sorter as input
 		if(k > 0) {
-			Sorter<typename ClauseEmitter::Literal> &p = sorters.back();
-			for(int j = base[k] - 1; j < p.size(); j += base[k]) {
-				ins.push_back(p.output(j));
+			for(int j = base[k] - 1; j < sorters.back().size(); j += base[k]) {
+				ins.push_back(sorters.back()[j]);
 				if(debugSorters)
 					std::cout << "carry from " << (k - 1) << " to " << k << std::endl;
 			}
@@ -83,28 +64,17 @@ void buildSorters(VarAllocator &allocator, ClauseEmitter &emitter,
 
 		std::vector<typename ClauseEmitter::Literal> outs
 				= encodeuzk::computePwSort(allocator, emitter, ins, null_lit);
-
-//		std::cout << "Creating sorter of size " << ins.size() << std::endl;
-		Sorter<typename ClauseEmitter::Literal> s(ins.size());
-		for(int i = 0; i < ins.size(); ++i) {
-			s.input(i) = ins[i];
-			if(debugSorters)
-				std::cout << "in[" << k << "][" << i << "]: " << ins[i].toNumber() << std::endl;
-		}
-		for(int i = 0; i < ins.size(); ++i) {
-			s.output(i) = outs[i];
-			if(debugSorters)
-				std::cout << "out[" << k << "][" << i << "]: " << outs[i].toNumber() << std::endl;
-		}
-		std::cout << "c Size of sorter " << k << ": " << s.size() << std::endl;
-		sorters.push_back(s);
+		std::cout << "c Size of sorter " << k << ": " << outs.size() << std::endl;
+		sorters.push_back(outs);
 	}
+
+	return sorters;
 }
 
 // produces a constraint that is true iff sorter >= target
 template<typename VarAllocator, typename ClauseEmitter>
 typename ClauseEmitter::Literal computeSorterGe(VarAllocator &allocator, ClauseEmitter &emitter,
-		Sorter<typename ClauseEmitter::Literal> &sorter, int target) {
+		const SorterLits<typename ClauseEmitter::Literal> &sorter, int target) {
 	if(target == 0) {
 		typename ClauseEmitter::Variable r = allocator.allocate();
 
@@ -121,13 +91,13 @@ typename ClauseEmitter::Literal computeSorterGe(VarAllocator &allocator, ClauseE
 		return r.oneLiteral();
 	}
 
-	return sorter.output(target - 1);
+	return sorter[target - 1];
 }
 
 // produces a constraint that is true iff sorter % divisor >= target
 template<typename VarAllocator, typename ClauseEmitter>
 typename ClauseEmitter::Literal computeSorterRemainderGe(VarAllocator &allocator, ClauseEmitter &emitter,
-		Sorter<typename ClauseEmitter::Literal> &sorter, int divisor, int target) {
+		const SorterLits<typename ClauseEmitter::Literal> &sorter, int divisor, int target) {
 	if(target == 0) {
 		typename ClauseEmitter::Variable r = allocator.allocate();
 	
@@ -158,9 +128,9 @@ typename ClauseEmitter::Literal computeSorterRemainderGe(VarAllocator &allocator
 
 		if(k + divisor - 1 < sorter.size()) {
 			disjunction.push_back(encodeuzk::computeAnd(allocator, emitter,
-					sorter.output(k + target - 1), sorter.output(k + divisor - 1).inverse()));
+					sorter[k + target - 1], sorter[k + divisor - 1].inverse()));
 		}else{
-			disjunction.push_back(sorter.output(k + target - 1));
+			disjunction.push_back(sorter[k + target - 1]);
 		}
 	}
 	
@@ -171,8 +141,8 @@ typename ClauseEmitter::Literal computeSorterRemainderGe(VarAllocator &allocator
 // generates the constraint (sorters >= rhs)
 template<typename VarAllocator, typename ClauseEmitter>
 typename ClauseEmitter::Literal computeSorterNetworkGe(VarAllocator &allocator, ClauseEmitter &emitter,
-		std::vector<Sorter<typename ClauseEmitter::Literal>> &sorters,
-		std::vector<int> base, std::vector<int> rhs, int i) {
+		const SorterNetwork<typename ClauseEmitter::Literal> &sorters,
+		const std::vector<int> &base, const std::vector<int> &rhs, int i) {
 
 	if(i == 0) {
 		typename ClauseEmitter::Variable r = allocator.allocate();
@@ -186,7 +156,6 @@ typename ClauseEmitter::Literal computeSorterNetworkGe(VarAllocator &allocator, 
 	}
 
 	i--;
-	Sorter<typename ClauseEmitter::Literal> &s = sorters[i];
 	
 	typename ClauseEmitter::Literal  p
 			= computeSorterNetworkGe(allocator, emitter, sorters, base, rhs, i);
@@ -207,8 +176,8 @@ typename ClauseEmitter::Literal computeSorterNetworkGe(VarAllocator &allocator, 
 
 template<typename VarAllocator, typename ClauseEmitter>
 typename ClauseEmitter::Literal computeSorterNetworkGe(VarAllocator &allocator, ClauseEmitter &emitter,
-		std::vector<Sorter<typename ClauseEmitter::Literal>> &sorters,
-		std::vector<int> base, std::vector<int> rhs) {
+		const SorterNetwork<typename ClauseEmitter::Literal> &sorters,
+		const std::vector<int> &base, const std::vector<int> &rhs) {
 	return computeSorterNetworkGe(allocator, emitter, sorters, base, rhs,
 			sorters.size());
 }
@@ -246,7 +215,7 @@ void maxsatHard(VarAllocator &allocator, ClauseEmitter &emitter,
 template<typename VarAllocator, typename ClauseEmitter>
 void maxsatLhs(VarAllocator &allocator, ClauseEmitter &emitter,
 		InClauseSpace &in, std::vector<int> &base,
-		std::vector<Sorter<typename ClauseEmitter::Literal>> &sorters,
+		SorterNetwork<typename ClauseEmitter::Literal> &sorters,
 		std::vector<typename ClauseEmitter::Literal> &rel_lits,
 		std::vector<Weight> &rel_weights,
 		std::unordered_map<InVariable, typename ClauseEmitter::Variable, VarHashFunc> &variable_map) {
@@ -272,14 +241,14 @@ void maxsatLhs(VarAllocator &allocator, ClauseEmitter &emitter,
 		rel_weights.push_back(in_clause.getWeight());
 	}
 
-	buildSorters(allocator, emitter, rel_lits, rel_weights, base, sorters);
+	sorters = computeSorterNetwork(allocator, emitter, rel_lits, rel_weights, base);
 }
 
 // generates a formula, that is satisfiable iff at least min soft clauses can be satisfied
 template<typename VarAllocator, typename ClauseEmitter>
 void maxsatRhs(VarAllocator &allocator, ClauseEmitter &emitter,
 		std::vector<int> &base, int min,
-		std::vector<Sorter<typename ClauseEmitter::Literal>> &sorters) {
+		SorterNetwork<typename ClauseEmitter::Literal> &sorters) {
 	std::vector<int> rhs = convertBase(min, base);
 	if(debugRhs)
 		for(int i = 0; i < rhs.size(); i++)
@@ -306,14 +275,14 @@ void solve(InClauseSpace &in, std::vector<int> &base, Weight initial_lb, Weight 
 			VarHashFunc> variable_map;
 	maxsatHard(hard_allocator, hard_emitter, in, variable_map);
 
-	std::vector<Sorter<typename Solver::Literal>> sorters;
+	SorterNetwork<typename Solver::Literal> sorters;
 	std::vector<typename Solver::Literal> rel_lits;
 	std::vector<Weight> rel_weights;
 	maxsatLhs(hard_allocator, hard_emitter, in, base, sorters, rel_lits, rel_weights, variable_map);
 
 	for(auto sp = sorters.begin(); sp != sorters.end(); ++sp)
 		for(int i = 0; i < sp->size(); i++)
-			solver.lockVariable(sp->output(i).variable());
+			solver.lockVariable((*sp)[i].variable());
 
 	std::vector<InLiteral> assignment;
 

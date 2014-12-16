@@ -19,7 +19,7 @@
 
 namespace maxsatuzk {
 
-std::vector<int> convertBase(int64_t num, std::vector<int> &base) {
+std::vector<int> convertBase(int64_t num, const std::vector<int> &base) {
 	std::vector<int> val(base.size());
 	val[0] = 1;
 	for(int i = 1; i < base.size(); i++) {
