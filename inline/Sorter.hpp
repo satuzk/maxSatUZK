@@ -16,6 +16,7 @@
 #include <encodeuzk/static.hpp>
 #include <encodeuzk/encode.inline.hpp>
 #include <encodeuzk/basic.inline.hpp>
+#include <encodeuzk/mixed-radix.inline.hpp>
 #include <encodeuzk/sorting.inline.hpp>
 #include <encodeuzk/static.inline.hpp>
 

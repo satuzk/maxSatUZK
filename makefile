@@ -1,5 +1,5 @@
 
-CPP= src/Main.cpp src/Sorter.cpp src/OptimizeBase.cpp src/SolverUzk.cpp satuzk/src/sys/Linux.cpp
+CPP= src/Main.cpp src/Sorter.cpp src/SolverUzk.cpp satuzk/src/sys/Linux.cpp
 LIB= -lrt
 
 testing:

@@ -11,9 +11,7 @@
 #include "../inline/Sorter.hpp"
 #include "../inline/DimacsParse.hpp"
 
-namespace maxsatuzk {
-	std::vector<int> optimalBase(const std::vector<int> &s);
-}
+#include <encodeuzk/mixed-radix.inline.hpp>
 
 int main(int argc, char **argv) {
 	if(argc != 2)
@@ -34,7 +32,7 @@ int main(int argc, char **argv) {
 		if(clause.getWeight() != maxsatuzk::kHardWeight)
 			s.push_back(clause.getWeight());
 	}
-	std::vector<int> base = maxsatuzk::optimalBase(s);
+	std::vector<int> base = encodeuzk::optimalBase(s);
 	
 	maxsatuzk::solve<maxsatuzk::SolverUzk>(in, base, 0, maxsatuzk::countSoftWeight(in) + 1);
 	return 0;
