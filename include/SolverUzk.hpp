@@ -20,7 +20,6 @@
 #include "../satuzk/inline/sys/Performance.hpp"
 #include "../satuzk/inline/util/BulkAlloc.hpp"
 #include "../satuzk/inline/util/BinaryHeap.hpp"
-#include "../satuzk/inline/util/BinaryStack.hpp"
 #include "../satuzk/inline/util/Bool3.hpp"
 #include "../satuzk/inline/util/SimpleVector.hpp"
 
